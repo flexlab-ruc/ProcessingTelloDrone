@@ -77,7 +77,7 @@ public class TelloDrone {
   }
 
   private boolean ok() {
-    return receiveMessage().equals("ok\u0000\u0000\u0000");
+    return receiveMessage().equals("ok");
   }
 
   /**
@@ -113,13 +113,15 @@ public class TelloDrone {
   private String receiveMessage() {
     byte[] receiveData = new byte[5];
     DatagramPacket packet = new DatagramPacket(receiveData, receiveData.length);
+    String response;
     try {
       socket.receive(packet);
+      response =  new String(packet.getData(), 0, packet.getLength(), "UTF-8");
     }
     catch (IOException e) {
       return "communication error";
     }
-    return new String(packet.getData());
+    return response.trim();
   }
 
   /**
@@ -559,19 +561,16 @@ public class TelloDrone {
         {
           listener.commandQueueFinished();
         }
-      eventListeners.forEach(e -> {
-        e.commandQueueFinished();
-      }
-      );
     }
 
     public void addToCommandQueue(Command command)
     {
       this.commandsToExecute.add(command);
-      eventListeners.forEach(e-> {
-        e.commandAdded(command);
-      }
-      );
+      
+      for (DroneCommandEventListener listener: eventListeners)
+        {
+          listener.commandAdded(command);
+        }
     }
 
     public void resumeQueue()

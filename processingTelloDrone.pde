@@ -34,6 +34,7 @@ void setup()
   drone.setLogToConsole(false);
 
   // add eventlistener to the "drone command queue"
+  /*
   drone.addCommandQueueEventListener(new DroneCommandEventListener() {
     @Override
       public void commandExecuted(Command command)
@@ -61,6 +62,6 @@ void setup()
     }
   }
   );
-
-  drone.startCommandQueue();
+  */
+  //drone.startCommandQueue();
 }
