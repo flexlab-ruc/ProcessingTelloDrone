@@ -4,43 +4,49 @@ void setup()
   TelloDrone drone = new TelloDrone();
 
   drone.setLogToConsole(true);
-
   drone.connect();
+  
+  // choose to send commands directly to the drone or use the queue system
+  
+  //sending commands  (blocks the thread)
+  //sendCommandsToDrone(drone);
+  
+  // use queue system to store and execute commands
+  useCommandQueue(drone);
+  
+}
 
-  // sending single commands to the drone:
-
+void sendCommandsToDrone(TelloDrone drone)
+{
+  //sending single commands to the drone:
   drone.getBatteryPercentage();
-
   drone.takeoff();
-
   drone.rotateClockwise(360);
-
   drone.land();
+}
 
-
-
-
-  // create a queue of commands and execute them
-/*
+// create a queue of commands and execute them
+void useCommandQueue(TelloDrone drone)
+  {
   drone.addToCommandQueue("sdk?");
   drone.addToCommandQueue("sn?");
   drone.addToCommandQueue("takeoff");
   drone.addToCommandQueue("ccw 180");
   drone.addToCommandQueue("cw 180");
-  drone.addToCommandQueue("land");*/
+  drone.addToCommandQueue("land");
 
 
   //disable logging drone and use the eventlistener below instead
   drone.setLogToConsole(false);
 
-  // add eventlistener to the "drone command queue"
-  /*
+  //add eventlistener to the "drone command queue"
+
   drone.addCommandQueueEventListener(new DroneCommandEventListener() {
     @Override
       public void commandExecuted(Command command)
     {
       System.out.println("Command Executed:");
-      System.out.println(command);
+      System.out.println(command.getCommand());
     }
 
     @Override
@@ -60,8 +66,6 @@ void setup()
       public void commandQueueFinished() {
       System.out.println("Done. No more commands in queue");
     }
-  }
-  );
-  */
-  //drone.startCommandQueue();
+  });
+  drone.startCommandQueue();
 }
