@@ -445,18 +445,20 @@ public class TelloDrone {
 
   /**
    * Add to queue of commands
+   * the Queue is automatically started
    * @param command
    */
   public void addToCommandQueue(String command) {
     Command c = new Command(command);
     commander.addToCommandQueue(c);
+    if (commander.getRunningState() == false) commander.start();
   }
 
   /**
    * start executing commands from command queue in separate thread
    */
   public void startCommandQueue() {
-    commander.run();
+    commander.start();
   }
 
   /**
@@ -514,7 +516,7 @@ public class TelloDrone {
     ArrayList<DroneCommandEventListener> eventListeners = new ArrayList<DroneCommandEventListener>();
     private boolean clearQueue;
     private boolean suspend;
-
+    private boolean running = false;
 
     public CommanderThread(TelloDrone drone) {
       this.drone = drone;
@@ -522,6 +524,7 @@ public class TelloDrone {
 
     @Override
       public void run() {
+      this.running = true;  
       while (!commandsToExecute.isEmpty())
       {
         for (DroneCommandEventListener listener: eventListeners)
@@ -539,7 +542,7 @@ public class TelloDrone {
         
         executedCommands.add(commandsToExecute.get(0));
         commandsToExecute.remove(0);
-      }
+      
       if (suspend) {
         try {
           this.wait();
@@ -556,11 +559,14 @@ public class TelloDrone {
         catch (InterruptedException e) {
           //expected exception
         }
-      }
+      
+    }
+  }
       for (DroneCommandEventListener listener: eventListeners)
         {
           listener.commandQueueFinished();
         }
+    this.running = false;
     }
 
     public void addToCommandQueue(Command command)
@@ -571,6 +577,11 @@ public class TelloDrone {
         {
           listener.commandAdded(command);
         }
+    }
+
+    public boolean getRunningState()
+    {
+      return this.running;
     }
 
     public void resumeQueue()
