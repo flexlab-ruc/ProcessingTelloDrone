@@ -507,9 +507,9 @@ public class TelloDrone {
   private class CommanderThread extends Thread
   {
     private final TelloDrone drone;
-    ArrayList<Command> commandsToExecute = new ArrayList<>();
-    ArrayList<Command> executedCommands = new ArrayList<>();
-    ArrayList<DroneCommandEventListener> eventListeners = new ArrayList<>();
+    ArrayList<Command> commandsToExecute = new ArrayList<Command>();
+    ArrayList<Command> executedCommands = new ArrayList<Command>();
+    ArrayList<DroneCommandEventListener> eventListeners = new ArrayList<DroneCommandEventListener>();
     private boolean clearQueue;
     private boolean suspend;
 
@@ -522,16 +522,19 @@ public class TelloDrone {
       public void run() {
       while (!commandsToExecute.isEmpty())
       {
-        eventListeners.forEach(e-> {
-          e.commandExecuted(commandsToExecute.get(0));
+        for (DroneCommandEventListener listener: eventListeners)
+        {
+          listener.commandExecuted(commandsToExecute.get(0));
         }
-        );
+        
         drone.sendMessage(commandsToExecute.get(0).getCommand());
         commandsToExecute.get(0).setReply(receiveMessage());
-        eventListeners.forEach(e-> {
-          e.commandExecuted(commandsToExecute.get(0));
+        
+        for (DroneCommandEventListener listener: eventListeners)
+        {
+          listener.commandFinished(commandsToExecute.get(0));
         }
-        );
+        
         executedCommands.add(commandsToExecute.get(0));
         commandsToExecute.remove(0);
       }
@@ -552,6 +555,10 @@ public class TelloDrone {
           //expected exception
         }
       }
+      for (DroneCommandEventListener listener: eventListeners)
+        {
+          listener.commandQueueFinished();
+        }
       eventListeners.forEach(e -> {
         e.commandQueueFinished();
       }
