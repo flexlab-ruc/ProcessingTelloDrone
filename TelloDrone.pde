@@ -24,24 +24,22 @@ public class TelloDrone {
   private final int udpPort = 8889;
   private DatagramSocket socket;
   private InetAddress IPAddress;
-  private boolean isConnected = false;
+  //private boolean isConnected = false;
   private boolean logToConsole = true;
-  private Date date = new Date();
   private boolean streamOn = false;
   private int imageCounter = 0;
-  private boolean queueUp = false;
   private CommanderThread commander = new CommanderThread(this);
 
 
 
   public TelloDrone() { //mads hacket her
-  //  String path = System.getProperty("user.dir"); 
-  //  System.out.println("Working Directory = " + path);
+    //  String path = System.getProperty("user.dir"); 
+    //  System.out.println("Working Directory = " + path);
     log("Initializing Drone");
     File folder = new File(dataPath("") + "/"+ "grabbedImages");
 
     File[] images = folder.listFiles();
-        print(images.length);
+    print(images.length);
     if (images.length >1)
     {
       Arrays.sort(images);
@@ -63,7 +61,7 @@ public class TelloDrone {
       sendMessage("command");
       //System.out.println(receiveMessage());
       if (ok()) {
-        isConnected = true;
+        //isConnected = true;
         log("Succesfully connected to the drone");
         return true;
       }
@@ -451,7 +449,6 @@ public class TelloDrone {
   public void addToCommandQueue(String command) {
     Command c = new Command(command);
     commander.addToCommandQueue(c);
-    if (commander.getRunningState() == false) commander.start();
   }
 
   /**
@@ -516,7 +513,6 @@ public class TelloDrone {
     ArrayList<DroneCommandEventListener> eventListeners = new ArrayList<DroneCommandEventListener>();
     private boolean clearQueue;
     private boolean suspend;
-    private boolean running = false;
 
     public CommanderThread(TelloDrone drone) {
       this.drone = drone;
@@ -524,65 +520,88 @@ public class TelloDrone {
 
     @Override
       public void run() {
-      this.running = true;  
-      while (!commandsToExecute.isEmpty())
+      while (true)
       {
-        for (DroneCommandEventListener listener: eventListeners)
+        for (DroneCommandEventListener listener : eventListeners)
         {
           listener.commandExecuted(commandsToExecute.get(0));
         }
-        
+
         drone.sendMessage(commandsToExecute.get(0).getCommand());
         commandsToExecute.get(0).setReply(receiveMessage());
-        
-        for (DroneCommandEventListener listener: eventListeners)
+
+        for (DroneCommandEventListener listener : eventListeners)
         {
           listener.commandFinished(commandsToExecute.get(0));
         }
-        
+
         executedCommands.add(commandsToExecute.get(0));
         commandsToExecute.remove(0);
-      
-      if (suspend) {
-        try {
-          this.wait();
+
+        if (suspend) {
+          synchronized (this)
+          {
+            try
+            {
+              this.wait();
+            }
+            catch(InterruptedException e)
+            {
+              e.printStackTrace();
+            }
+          }
+          
         }
-        catch (InterruptedException e) {
-          //expected exception
+        if (clearQueue) {
+          commandsToExecute.clear();
+          synchronized (this)
+          {
+            try
+            {
+              this.wait();
+            }
+            catch(InterruptedException e)
+            {
+              e.printStackTrace();
+            }
+          }
+        }
+        if (commandsToExecute.isEmpty())
+        {
+          for (DroneCommandEventListener listener : eventListeners)
+          {
+            listener.commandQueueFinished();
+          }
+          synchronized (this)
+          {
+            try
+            {
+              this.wait();
+            }
+            catch(InterruptedException e)
+            {
+              e.printStackTrace();
+            }
+          }
         }
       }
-      if (clearQueue) {
-        commandsToExecute.clear();
-        try {
-          this.wait();
-        }
-        catch (InterruptedException e) {
-          //expected exception
-        }
-      
-    }
-  }
-      for (DroneCommandEventListener listener: eventListeners)
-        {
-          listener.commandQueueFinished();
-        }
-    this.running = false;
     }
 
     public void addToCommandQueue(Command command)
     {
       this.commandsToExecute.add(command);
-      
-      for (DroneCommandEventListener listener: eventListeners)
-        {
-          listener.commandAdded(command);
-        }
+
+      for (DroneCommandEventListener listener : eventListeners)
+      {
+        listener.commandAdded(command);
+      }
+      // if thread is waiting the notify  :-)
+      synchronized(this)
+      {
+        this.notify();
+      }
     }
 
-    public boolean getRunningState()
-    {
-      return this.running;
-    }
 
     public void resumeQueue()
     {
@@ -637,7 +656,7 @@ public class Command
     builder.append("command: \t");
     builder.append(command);
     builder.append(System.getProperty("line.separator"));
-    builder.append("reply \t\t");
+    builder.append("reply: \t");
     builder.append(reply);
     builder.append(System.getProperty("line.separator"));
     return builder.toString();

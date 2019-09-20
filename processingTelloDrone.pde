@@ -31,11 +31,15 @@ void useCommandQueue(TelloDrone drone)
   drone.addToCommandQueue("sdk?");
   drone.addToCommandQueue("sn?");
   drone.addToCommandQueue("takeoff");
-  drone.addToCommandQueue("ccw 180");
-  drone.addToCommandQueue("cw 180");
+  for (int i=0; i<5; i++)
+  {
+    drone.addToCommandQueue("cw 180");
+  }
   drone.addToCommandQueue("land");
 
-
+  
+  
+  
   //disable logging drone and use the eventlistener below instead
   drone.setLogToConsole(false);
 
@@ -68,4 +72,12 @@ void useCommandQueue(TelloDrone drone)
     }
   });
   drone.startCommandQueue();
+  
+  System.out.println("DONE SENDING COMMANDS - READY FOR OTHER TASKS :-)");
+  
+  delay(15000);
+  drone.clearCommandQueue();
+  delay(3000);
+  drone.addToCommandQueue("takeoff");
+  drone.addToCommandQueue("land");
 }
