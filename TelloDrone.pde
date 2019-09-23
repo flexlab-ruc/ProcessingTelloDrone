@@ -1,3 +1,15 @@
+/*
+https://github.com/SovGVD/nodetello/blob/master/lib/nodetello.js
+ https://github.com/f41ardu/TelloProcessing/blob/master/TelloSDKVideo/TelloSDKVideo.pde
+ https://tellopilots.com/threads/tello-video-web-streaming.455/
+ https://tellopilots.com/threads/tello-whats-possible.88/page-3
+ https://github.com/SMerrony/tello
+ http://gsvideo.sourceforge.net/
+ https://gstreamer.freedesktop.org/download/
+ https://github.com/f41ardu/TelloProcessing
+ udp://0.0.0.0:6038 - 6037
+ http://www.magicandlove.com/blog/2018/04/09/saving-video-from-processing-with-the-jcodec-2-3/
+ */
 
 import java.io.File;
 import java.io.IOException;
@@ -21,6 +33,10 @@ public enum Flip {
 
 public class TelloDrone {
 
+  // hobye hack
+  private DatagramSocket socketState;
+  private final int udpPortState = 8890;
+
   private final int udpPort = 8889;
   private DatagramSocket socket;
   private InetAddress IPAddress;
@@ -29,7 +45,7 @@ public class TelloDrone {
   private boolean streamOn = false;
   private int imageCounter = 0;
   private CommanderThread commander = new CommanderThread(this);
-
+  public stateReceiveThread stateReceiver = new stateReceiveThread(this); // hobye hack
 
 
   public TelloDrone() { //mads hacket her
@@ -46,6 +62,7 @@ public class TelloDrone {
       imageCounter = Integer.parseInt(images[images.length-1].getName().substring(0, 4));
     }
     //System.out.println("imagecounter" + imageCounter);
+    setupStateReceive(); // hobye hack
   }
 
   /**
@@ -74,6 +91,34 @@ public class TelloDrone {
     }
   }
 
+  private boolean setupStateReceive() // hobye hack
+  {
+    try {
+
+      IPAddress = InetAddress.getByName("192.168.10.1");
+      socketState = new DatagramSocket(udpPortState);
+      return true;
+    }
+    catch (Exception e) {
+
+      return false;
+    }
+  }
+
+  public String receiveState() { // hobye hack
+    byte[] receiveData = new byte[500];
+    DatagramPacket packet = new DatagramPacket(receiveData, receiveData.length);
+    String response;
+    try {
+      socketState.receive(packet);
+      response =  new String(packet.getData(), 0, packet.getLength(), "UTF-8");
+    }
+    catch (IOException e) {
+      return "communication error";
+    }
+    return response.trim();
+  }
+
   private boolean ok() {
     return receiveMessage().equals("ok");
   }
@@ -97,15 +142,19 @@ public class TelloDrone {
     }
   }
 
-  public boolean sendCommand(String command) {
-    sendMessage(command);
-    if (ok()) {
-      log("command \"" +  command + "\" accepted");
-      return true;
-    } else {
-      log("command \"" + command + "\" failed");
-      return false;
+  public boolean sendCommand(Command command) {
+    sendMessage(command.getCommand());
+    if (!command.isDirect())
+    {
+      if (ok()) {
+        log("command \"" +  command + "\" accepted");
+        return true;
+      } else {
+        log("command \"" + command + "\" failed");
+        return false;
+      }
     }
+    return true;
   }
 
   private String receiveMessage() {
@@ -441,14 +490,19 @@ public class TelloDrone {
     return receiveMessage();
   }
 
+  public void addToCommandQueue(String command, boolean direct) { // hobye hack
+    Command c = new Command(command, direct);
+    commander.addToCommandQueue(c);
+  }
+
   /**
    * Add to queue of commands
    * the Queue is automatically started
    * @param command
    */
-  public void addToCommandQueue(String command) {
-    Command c = new Command(command);
-    commander.addToCommandQueue(c);
+  public void addToCommandQueue(String command) { // hobye hack
+
+    addToCommandQueue(command, false);
   }
 
   /**
@@ -458,6 +512,24 @@ public class TelloDrone {
     commander.start();
   }
 
+  //hobye hack
+  public void startStateReicever() {
+    stateReceiver.start();
+  }
+
+  // hobye hack
+  public String getStateInfo(String state)
+  {
+    String[] states = stateReceiver.state.split(";"); 
+    for (int i = 0; i < states.length; i++)
+    {
+      if(states[i].trim().startsWith(state + ":"))
+      {
+        return states[i].split(":")[1].trim();
+      }
+    }
+    return "";
+  }
   /**
    * suspend command queue
    */
@@ -503,8 +575,21 @@ public class TelloDrone {
     return (Command[]) commander.executedCommands.toArray();
   }
 
-
-
+  private class stateReceiveThread extends Thread
+  {
+    private final TelloDrone drone;
+    public String state ="";
+    public stateReceiveThread(TelloDrone drone) {
+      this.drone = drone;
+    }
+    @Override
+      public void run() {
+      while (true)
+      {
+        state = drone.receiveState();
+      }
+    }
+  }
   private class CommanderThread extends Thread
   {
     private final TelloDrone drone;
@@ -522,22 +607,27 @@ public class TelloDrone {
       public void run() {
       while (true)
       {
-        for (DroneCommandEventListener listener : eventListeners)
+        if (commandsToExecute.size() > 0)
         {
-          listener.commandExecuted(commandsToExecute.get(0));
+          for (DroneCommandEventListener listener : eventListeners)
+          {
+            listener.commandExecuted(commandsToExecute.get(0));
+          }
+
+          drone.sendMessage(commandsToExecute.get(0).getCommand());
+          if (!commandsToExecute.get(0).isDirect()) // hobye hack
+          {
+            commandsToExecute.get(0).setReply(receiveMessage());
+          }
+
+          for (DroneCommandEventListener listener : eventListeners)
+          {
+            listener.commandFinished(commandsToExecute.get(0));
+          }
+
+          executedCommands.add(commandsToExecute.get(0));
+          commandsToExecute.remove(0);
         }
-
-        drone.sendMessage(commandsToExecute.get(0).getCommand());
-        commandsToExecute.get(0).setReply(receiveMessage());
-
-        for (DroneCommandEventListener listener : eventListeners)
-        {
-          listener.commandFinished(commandsToExecute.get(0));
-        }
-
-        executedCommands.add(commandsToExecute.get(0));
-        commandsToExecute.remove(0);
-
         if (suspend) {
           synchronized (this)
           {
@@ -550,7 +640,6 @@ public class TelloDrone {
               e.printStackTrace();
             }
           }
-          
         }
         if (clearQueue) {
           commandsToExecute.clear();
@@ -633,13 +722,26 @@ public class Command
 {
   private String command;
   private String reply;
+  private boolean direct = false;
+
 
   public Command(String command) {
+    this.command = command; // hobye hack
+  }
+
+  public Command(String command, boolean direct) { // hobye hack
     this.command = command;
+    this.direct = direct;
   }
 
   public String getCommand() {
     return command;
+  }
+
+
+  public boolean isDirect()
+  {
+    return direct;
   }
 
   public String getReply() {
