@@ -1,83 +1,47 @@
+
+int missionPad = 3;
+
+TelloDrone drone;
+
 void setup()
 {
-  // Create Drone instance
-  TelloDrone drone = new TelloDrone();
-
-  drone.setLogToConsole(true);
-  drone.connect();
-  
-  // choose to send commands directly to the drone or use the queue system
-  
-  //sending commands  (blocks the thread)
-  //sendCommandsToDrone(drone);
-  
-  // use queue system to store and execute commands
-  useCommandQueue(drone);
+  size(1200, 700);
+  setupDrone();
   
 }
 
-void sendCommandsToDrone(TelloDrone drone)
+void draw()
 {
-  //sending single commands to the drone:
-  drone.getBatteryPercentage();
-  drone.takeoff();
-  drone.rotateClockwise(360);
-  drone.land();
+ 
+  
+  
+  
+  background(0);
+  uiUpdate(mouseX, mouseY, mousePressed, key, width, height);
+  drawDroneUI();
+
+
+  if (uiButton("Do drone show", 800, 190).clicked )
+  {
+    drone.addToCommandQueue("takeoff");
+    drone.addToCommandQueue("right 30"); 
+    drone.addToCommandQueue("left 30");
+    drone.addToCommandQueue("land");
+  }
+  
+  /*if(drone.commander.commandsToExecute.size() < 3 && missionPadOn)
+   {
+   drone.addToCommandQueue("go 0 0 100 20 m" + missionPad);
+   }*/
 }
 
-// create a queue of commands and execute them
-void useCommandQueue(TelloDrone drone)
-  {
-  drone.addToCommandQueue("sdk?");
-  drone.addToCommandQueue("sn?");
-  drone.addToCommandQueue("takeoff");
-  for (int i=0; i<5; i++)
-  {
-    drone.addToCommandQueue("cw 180");
+
+
+
+void keyPressed() {
+  if (key == 'b' ) {
+    println("hep" );
+  } else if (key == 'a' ) {
+    drone.addToCommandQueue("right 30");
   }
-  drone.addToCommandQueue("land");
-
-  
-  
-  
-  //disable logging drone and use the eventlistener below instead
-  drone.setLogToConsole(false);
-
-  //add eventlistener to the "drone command queue"
-
-  drone.addCommandQueueEventListener(new DroneCommandEventListener() {
-    @Override
-      public void commandExecuted(Command command)
-    {
-      System.out.println("Command Executed:");
-      System.out.println(command.getCommand());
-    }
-
-    @Override
-      public void commandFinished(Command command)
-    {
-      System.out.println("Command Finished:");
-      System.out.println(command);
-    }
-
-    @Override
-      public void commandAdded(Command command)
-    {
-      System.out.println(command.getCommand() + " added to queue");
-    }
-
-    @Override
-      public void commandQueueFinished() {
-      System.out.println("Done. No more commands in queue");
-    }
-  });
-  drone.startCommandQueue();
-  
-  System.out.println("DONE SENDING COMMANDS - READY FOR OTHER TASKS :-)");
-  
-  delay(15000);
-  drone.clearCommandQueue();
-  delay(3000);
-  drone.addToCommandQueue("takeoff");
-  drone.addToCommandQueue("land");
 }
